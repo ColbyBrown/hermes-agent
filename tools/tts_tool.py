@@ -53,6 +53,7 @@ from typing import Callable, Dict, Any, Optional
 from urllib.parse import urljoin
 
 from hermes_constants import display_hermes_home
+from utils import is_truthy_value
 
 logger = logging.getLogger(__name__)
 def get_env_value(name, default=None):
@@ -584,10 +585,7 @@ def _get_command_tts_output_format(
 
 def _is_command_tts_voice_compatible(config: Dict[str, Any]) -> bool:
     """Return True only when the user explicitly opted in to voice delivery."""
-    value = config.get("voice_compatible", False)
-    if isinstance(value, str):
-        return value.strip().lower() in {"1", "true", "yes", "on"}
-    return bool(value)
+    return is_truthy_value(config.get("voice_compatible", False))
 
 
 def _shell_quote_context(command_template: str, position: int) -> Optional[str]:
@@ -1096,7 +1094,7 @@ def _generate_xai_tts(text: str, output_path: str, tts_config: Dict[str, Any]) -
     xAI exposes a dedicated /v1/tts endpoint instead of the OpenAI audio.speech
     API shape, so this is implemented as a separate backend.
     """
-    import requests
+    import httpx
 
     from tools.xai_http import resolve_xai_http_credentials
 
@@ -1143,7 +1141,7 @@ def _generate_xai_tts(text: str, output_path: str, tts_config: Dict[str, Any]) -
             output_format["bit_rate"] = bit_rate
         payload["output_format"] = output_format
 
-    response = requests.post(
+    response = httpx.post(
         f"{base_url}/tts",
         headers={
             "Authorization": f"Bearer {api_key}",
@@ -1180,7 +1178,7 @@ def _generate_minimax_tts(text: str, output_path: str, tts_config: Dict[str, Any
     Returns:
         Path to the saved audio file.
     """
-    import requests
+    import httpx
 
     api_key = (get_env_value("MINIMAX_API_KEY") or "")
     if not api_key:
@@ -1244,7 +1242,7 @@ def _generate_minimax_tts(text: str, output_path: str, tts_config: Dict[str, Any
             "voice_id": voice_id,
         }
 
-    response = requests.post(base_url, json=payload, headers=headers, timeout=60)
+    response = httpx.post(base_url, json=payload, headers=headers, timeout=60)
 
     if is_t2a_v2:
         # t2a_v2 returns JSON with hex-encoded audio
@@ -1395,7 +1393,7 @@ def _generate_gemini_tts(text: str, output_path: str, tts_config: Dict[str, Any]
     Returns:
         Path to the saved audio file.
     """
-    import requests
+    import httpx
 
     api_key = (get_env_value("GEMINI_API_KEY") or get_env_value("GOOGLE_API_KEY") or "").strip()
     if not api_key:
@@ -1425,7 +1423,7 @@ def _generate_gemini_tts(text: str, output_path: str, tts_config: Dict[str, Any]
     }
 
     endpoint = f"{base_url}/models/{model}:generateContent"
-    response = requests.post(
+    response = httpx.post(
         endpoint,
         params={"key": api_key},
         headers={"Content-Type": "application/json"},

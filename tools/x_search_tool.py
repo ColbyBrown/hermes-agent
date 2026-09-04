@@ -48,7 +48,7 @@ import time
 from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-import requests
+import httpx
 
 from tools.registry import registry, tool_error
 from tools.xai_http import hermes_xai_user_agent, resolve_xai_http_credentials
@@ -243,7 +243,7 @@ def _extract_inline_citations(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
     return citations
 
 
-def _http_error_message(exc: requests.HTTPError) -> str:
+def _http_error_message(exc: httpx.HTTPStatusError) -> str:
     response = getattr(exc, "response", None)
     if response is None:
         return str(exc)
@@ -327,10 +327,10 @@ def x_search_tool(
 
         timeout_seconds = _get_x_search_timeout_seconds()
         max_retries = _get_x_search_retries()
-        response: Optional[requests.Response] = None
+        response: Optional[httpx.Response] = None
         for attempt in range(max_retries + 1):
             try:
-                response = requests.post(
+                response = httpx.post(
                     f"{base_url}/responses",
                     headers={
                         "Authorization": f"Bearer {api_key}",
@@ -342,7 +342,7 @@ def x_search_tool(
                 )
                 response.raise_for_status()
                 break
-            except requests.HTTPError as e:
+            except httpx.HTTPStatusError as e:
                 status_code = getattr(getattr(e, "response", None), "status_code", None)
                 if status_code is None or status_code < 500 or attempt >= max_retries:
                     raise
@@ -353,7 +353,7 @@ def x_search_tool(
                     _http_error_message(e),
                 )
                 time.sleep(min(5.0, 1.5 * (attempt + 1)))
-            except (requests.ReadTimeout, requests.ConnectionError) as e:
+            except httpx.TransportError as e:
                 if attempt >= max_retries:
                     raise
                 logger.warning(
@@ -414,7 +414,7 @@ def x_search_tool(
             },
             ensure_ascii=False,
         )
-    except requests.HTTPError as e:
+    except httpx.HTTPStatusError as e:
         logger.error("x_search failed: %s", e, exc_info=True)
         return json.dumps(
             {
@@ -426,7 +426,7 @@ def x_search_tool(
             },
             ensure_ascii=False,
         )
-    except requests.ReadTimeout as e:
+    except httpx.ReadTimeout as e:
         logger.error("x_search timed out: %s", e, exc_info=True)
         return json.dumps(
             {

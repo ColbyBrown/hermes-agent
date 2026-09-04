@@ -184,8 +184,8 @@ class TestGenerate:
         submit = _submit_response()
         poll = _poll_response(_completed_job("https://krea.cdn/result.png"))
 
-        with patch("plugins.image_gen.krea.requests.post", return_value=submit) as mock_post, \
-             patch("plugins.image_gen.krea.requests.get", return_value=poll) as mock_get, \
+        with patch("plugins.image_gen.krea.httpx.post", return_value=submit) as mock_post, \
+             patch("plugins.image_gen.krea.httpx.get", return_value=poll) as mock_get, \
              patch(
                  "plugins.image_gen.krea.save_url_image",
                  return_value=Path("/tmp/krea_krea-2-medium_test.png"),
@@ -217,8 +217,8 @@ class TestGenerate:
         submit = _submit_response()
         poll = _poll_response(_completed_job())
 
-        with patch("plugins.image_gen.krea.requests.post", return_value=submit) as mock_post, \
-             patch("plugins.image_gen.krea.requests.get", return_value=poll), \
+        with patch("plugins.image_gen.krea.httpx.post", return_value=submit) as mock_post, \
+             patch("plugins.image_gen.krea.httpx.get", return_value=poll), \
              patch(
                  "plugins.image_gen.krea.save_url_image",
                  return_value=Path("/tmp/x.png"),
@@ -236,8 +236,8 @@ class TestGenerate:
         submit = _submit_response()
         poll = _poll_response(_completed_job())
 
-        with patch("plugins.image_gen.krea.requests.post", return_value=submit) as mock_post, \
-             patch("plugins.image_gen.krea.requests.get", return_value=poll), \
+        with patch("plugins.image_gen.krea.httpx.post", return_value=submit) as mock_post, \
+             patch("plugins.image_gen.krea.httpx.get", return_value=poll), \
              patch(
                  "plugins.image_gen.krea.save_url_image",
                  return_value=Path("/tmp/x.png"),
@@ -255,8 +255,8 @@ class TestGenerate:
         submit = _submit_response()
         poll = _poll_response(_completed_job())
 
-        with patch("plugins.image_gen.krea.requests.post", return_value=submit) as mock_post, \
-             patch("plugins.image_gen.krea.requests.get", return_value=poll), \
+        with patch("plugins.image_gen.krea.httpx.post", return_value=submit) as mock_post, \
+             patch("plugins.image_gen.krea.httpx.get", return_value=poll), \
              patch(
                  "plugins.image_gen.krea.save_url_image",
                  return_value=Path("/tmp/x.png"),
@@ -274,8 +274,8 @@ class TestGenerate:
         submit = _submit_response()
         poll = _poll_response(_completed_job())
 
-        with patch("plugins.image_gen.krea.requests.post", return_value=submit) as mock_post, \
-             patch("plugins.image_gen.krea.requests.get", return_value=poll), \
+        with patch("plugins.image_gen.krea.httpx.post", return_value=submit) as mock_post, \
+             patch("plugins.image_gen.krea.httpx.get", return_value=poll), \
              patch(
                  "plugins.image_gen.krea.save_url_image",
                  return_value=Path("/tmp/x.png"),
@@ -304,8 +304,8 @@ class TestGenerate:
         submit = _submit_response()
         poll = _poll_response(_completed_job())
 
-        with patch("plugins.image_gen.krea.requests.post", return_value=submit), \
-             patch("plugins.image_gen.krea.requests.get", return_value=poll), \
+        with patch("plugins.image_gen.krea.httpx.post", return_value=submit), \
+             patch("plugins.image_gen.krea.httpx.get", return_value=poll), \
              patch(
                  "plugins.image_gen.krea.save_url_image",
                  return_value=Path("/tmp/x.png"),
@@ -327,18 +327,18 @@ class TestGenerate:
 
 class TestGenerateErrors:
     def test_submit_http_error(self):
-        import requests as req_lib
+        import httpx as req_lib
         from plugins.image_gen.krea import KreaImageGenProvider
 
-        resp = req_lib.Response()
+        resp = req_lib.Response(status_code=0)
         resp.status_code = 401
         resp._content = b'{"error": {"message": "Invalid API key"}}'
         resp.headers["Content-Type"] = "application/json"
         resp.raise_for_status = MagicMock(
-            side_effect=req_lib.HTTPError(response=resp)
+            side_effect=req_lib.HTTPStatusError("mocked", request=req_lib.Request("POST", "https://mock"), response=resp)
         )
 
-        with patch("plugins.image_gen.krea.requests.post", return_value=resp):
+        with patch("plugins.image_gen.krea.httpx.post", return_value=resp):
             result = KreaImageGenProvider().generate(prompt="test")
 
         assert result["success"] is False
@@ -347,11 +347,11 @@ class TestGenerateErrors:
         assert "Invalid API key" in result["error"]
 
     def test_submit_timeout(self):
-        import requests as req_lib
+        import httpx as req_lib
         from plugins.image_gen.krea import KreaImageGenProvider
 
         with patch(
-            "plugins.image_gen.krea.requests.post", side_effect=req_lib.Timeout()
+            "plugins.image_gen.krea.httpx.post", side_effect=req_lib.ReadTimeout("timed out")
         ):
             result = KreaImageGenProvider().generate(prompt="test")
 
@@ -359,12 +359,12 @@ class TestGenerateErrors:
         assert result["error_type"] == "timeout"
 
     def test_submit_connection_error(self):
-        import requests as req_lib
+        import httpx as req_lib
         from plugins.image_gen.krea import KreaImageGenProvider
 
         with patch(
-            "plugins.image_gen.krea.requests.post",
-            side_effect=req_lib.ConnectionError("dns nope"),
+            "plugins.image_gen.krea.httpx.post",
+            side_effect=req_lib.TransportError("dns nope"),
         ):
             result = KreaImageGenProvider().generate(prompt="test")
 
@@ -379,7 +379,7 @@ class TestGenerateErrors:
         bad_submit.raise_for_status = MagicMock()
         bad_submit.json.return_value = {"status": "queued"}
 
-        with patch("plugins.image_gen.krea.requests.post", return_value=bad_submit):
+        with patch("plugins.image_gen.krea.httpx.post", return_value=bad_submit):
             result = KreaImageGenProvider().generate(prompt="test")
 
         assert result["success"] is False
@@ -397,9 +397,9 @@ class TestGenerateErrors:
         }
 
         submit = _submit_response()
-        with patch("plugins.image_gen.krea.requests.post", return_value=submit), \
+        with patch("plugins.image_gen.krea.httpx.post", return_value=submit), \
              patch(
-                 "plugins.image_gen.krea.requests.get",
+                 "plugins.image_gen.krea.httpx.get",
                  return_value=_poll_response(failed),
              ), \
              patch("plugins.image_gen.krea.time.sleep"):
@@ -419,9 +419,9 @@ class TestGenerateErrors:
             "result": {},
         }
 
-        with patch("plugins.image_gen.krea.requests.post", return_value=_submit_response()), \
+        with patch("plugins.image_gen.krea.httpx.post", return_value=_submit_response()), \
              patch(
-                 "plugins.image_gen.krea.requests.get",
+                 "plugins.image_gen.krea.httpx.get",
                  return_value=_poll_response(cancelled),
              ), \
              patch("plugins.image_gen.krea.time.sleep"):
@@ -440,9 +440,9 @@ class TestGenerateErrors:
             "result": {"urls": []},
         }
 
-        with patch("plugins.image_gen.krea.requests.post", return_value=_submit_response()), \
+        with patch("plugins.image_gen.krea.httpx.post", return_value=_submit_response()), \
              patch(
-                 "plugins.image_gen.krea.requests.get",
+                 "plugins.image_gen.krea.httpx.get",
                  return_value=_poll_response(completed_empty),
              ), \
              patch("plugins.image_gen.krea.time.sleep"):
@@ -453,18 +453,18 @@ class TestGenerateErrors:
 
     def test_url_download_failure_falls_back_to_bare_url(self):
         """Mirror of xAI behaviour — if local cache fails, return the URL."""
-        import requests as req_lib
+        import httpx as req_lib
         from plugins.image_gen.krea import KreaImageGenProvider
 
         url = "https://krea.cdn/expired-soon.png"
         submit = _submit_response()
         poll = _poll_response(_completed_job(url))
 
-        with patch("plugins.image_gen.krea.requests.post", return_value=submit), \
-             patch("plugins.image_gen.krea.requests.get", return_value=poll), \
+        with patch("plugins.image_gen.krea.httpx.post", return_value=submit), \
+             patch("plugins.image_gen.krea.httpx.get", return_value=poll), \
              patch(
                  "plugins.image_gen.krea.save_url_image",
-                 side_effect=req_lib.HTTPError("404"),
+                 side_effect=req_lib.HTTPStatusError("404", request=req_lib.Request("POST", "https://mock"), response=MagicMock(status_code=404)),
              ), \
              patch("plugins.image_gen.krea.time.sleep"):
             result = KreaImageGenProvider().generate(prompt="test")
@@ -486,9 +486,9 @@ class TestGenerateErrors:
             "result": {"urls": ["https://krea.cdn/done.png"]},
         }
 
-        with patch("plugins.image_gen.krea.requests.post", return_value=_submit_response()), \
+        with patch("plugins.image_gen.krea.httpx.post", return_value=_submit_response()), \
              patch(
-                 "plugins.image_gen.krea.requests.get",
+                 "plugins.image_gen.krea.httpx.get",
                  return_value=_poll_response(oddball),
              ), \
              patch(
@@ -505,14 +505,14 @@ class TestPollRetryPolicy:
     """Polling fail-fast on permanent 4xx, retry on transient 5xx/429."""
 
     def _http_error_response(self, status: int):
-        import requests as req_lib
+        import httpx as req_lib
 
-        resp = req_lib.Response()
+        resp = req_lib.Response(status_code=0)
         resp.status_code = status
         resp._content = b'{"error": "boom"}'
         resp.headers["Content-Type"] = "application/json"
         resp.raise_for_status = MagicMock(
-            side_effect=req_lib.HTTPError(response=resp)
+            side_effect=req_lib.HTTPStatusError("mocked", request=req_lib.Request("POST", "https://mock"), response=resp)
         )
         return resp
 
@@ -522,8 +522,8 @@ class TestPollRetryPolicy:
 
         bad_poll = self._http_error_response(401)
 
-        with patch("plugins.image_gen.krea.requests.post", return_value=_submit_response()), \
-             patch("plugins.image_gen.krea.requests.get", return_value=bad_poll) as mock_get, \
+        with patch("plugins.image_gen.krea.httpx.post", return_value=_submit_response()), \
+             patch("plugins.image_gen.krea.httpx.get", return_value=bad_poll) as mock_get, \
              patch("plugins.image_gen.krea.time.sleep"):
             result = KreaImageGenProvider().generate(prompt="test")
 
@@ -539,8 +539,8 @@ class TestPollRetryPolicy:
 
         bad_poll = self._http_error_response(404)
 
-        with patch("plugins.image_gen.krea.requests.post", return_value=_submit_response()), \
-             patch("plugins.image_gen.krea.requests.get", return_value=bad_poll) as mock_get, \
+        with patch("plugins.image_gen.krea.httpx.post", return_value=_submit_response()), \
+             patch("plugins.image_gen.krea.httpx.get", return_value=bad_poll) as mock_get, \
              patch("plugins.image_gen.krea.time.sleep"):
             result = KreaImageGenProvider().generate(prompt="test")
 
@@ -555,8 +555,8 @@ class TestPollRetryPolicy:
 
         bad_poll = self._http_error_response(403)
 
-        with patch("plugins.image_gen.krea.requests.post", return_value=_submit_response()), \
-             patch("plugins.image_gen.krea.requests.get", return_value=bad_poll) as mock_get, \
+        with patch("plugins.image_gen.krea.httpx.post", return_value=_submit_response()), \
+             patch("plugins.image_gen.krea.httpx.get", return_value=bad_poll) as mock_get, \
              patch("plugins.image_gen.krea.time.sleep"):
             result = KreaImageGenProvider().generate(prompt="test")
 
@@ -570,9 +570,9 @@ class TestPollRetryPolicy:
         flaky = self._http_error_response(503)
         good = _poll_response(_completed_job("https://krea.cdn/ok.png"))
 
-        with patch("plugins.image_gen.krea.requests.post", return_value=_submit_response()), \
+        with patch("plugins.image_gen.krea.httpx.post", return_value=_submit_response()), \
              patch(
-                 "plugins.image_gen.krea.requests.get",
+                 "plugins.image_gen.krea.httpx.get",
                  side_effect=[flaky, flaky, good],
              ) as mock_get, \
              patch(
@@ -592,9 +592,9 @@ class TestPollRetryPolicy:
         rate_limited = self._http_error_response(429)
         good = _poll_response(_completed_job("https://krea.cdn/ok.png"))
 
-        with patch("plugins.image_gen.krea.requests.post", return_value=_submit_response()), \
+        with patch("plugins.image_gen.krea.httpx.post", return_value=_submit_response()), \
              patch(
-                 "plugins.image_gen.krea.requests.get",
+                 "plugins.image_gen.krea.httpx.get",
                  side_effect=[rate_limited, good],
              ) as mock_get, \
              patch(

@@ -34,7 +34,7 @@ import threading
 import uuid
 from typing import Any, Dict, Optional
 
-import requests
+import httpx
 
 from agent.browser_provider import BrowserProvider
 
@@ -68,7 +68,7 @@ def _clear_pending_create_key(task_id: str) -> None:
         _pending_create_keys.pop(task_id, None)
 
 
-def _should_preserve_pending_create_key(response: requests.Response) -> bool:
+def _should_preserve_pending_create_key(response: httpx.Response) -> bool:
     """Decide whether to keep the idempotency key after a failed create.
 
     Preserve the key when the failure looks retryable (5xx) OR when the
@@ -199,13 +199,13 @@ class BrowserUseBrowserProvider(BrowserProvider):
         )
 
         try:
-            response = requests.post(
+            response = httpx.post(
                 f"{config['base_url']}/browsers",
                 headers=headers,
                 json=payload,
                 timeout=30,
             )
-        except requests.RequestException as exc:
+        except httpx.HTTPError as exc:
             # Managed mode: propagate raw so callers can retry with the
             # preserved idempotency key. Direct mode: wrap network failures
             # into a clean RuntimeError for end users.
@@ -215,7 +215,7 @@ class BrowserUseBrowserProvider(BrowserProvider):
                 f"Browser Use API connection failed: {exc}"
             ) from exc
 
-        if not response.ok:
+        if not response.is_success:
             if managed_mode and not _should_preserve_pending_create_key(response):
                 _clear_pending_create_key(task_id)
             raise RuntimeError(
@@ -253,7 +253,7 @@ class BrowserUseBrowserProvider(BrowserProvider):
             return False
 
         try:
-            response = requests.patch(
+            response = httpx.patch(
                 f"{config['base_url']}/browsers/{session_id}",
                 headers=self._headers(config),
                 json={"action": "stop"},
@@ -283,7 +283,7 @@ class BrowserUseBrowserProvider(BrowserProvider):
             )
             return
         try:
-            requests.patch(
+            httpx.patch(
                 f"{config['base_url']}/browsers/{session_id}",
                 headers=self._headers(config),
                 json={"action": "stop"},

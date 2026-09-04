@@ -31,7 +31,7 @@ import os
 import uuid
 from typing import Any, Dict
 
-import requests
+import httpx
 
 from agent.browser_provider import BrowserProvider
 
@@ -83,18 +83,18 @@ class FirecrawlBrowserProvider(BrowserProvider):
         body: Dict[str, object] = {"ttl": ttl}
 
         try:
-            response = requests.post(
+            response = httpx.post(
                 f"{self._api_url()}/v2/browser",
                 headers=self._headers(),
                 json=body,
                 timeout=30,
             )
-        except requests.RequestException as exc:
+        except httpx.HTTPError as exc:
             raise RuntimeError(
                 f"Firecrawl API connection failed: {exc}"
             ) from exc
 
-        if not response.ok:
+        if not response.is_success:
             raise RuntimeError(
                 f"Failed to create Firecrawl browser session: "
                 f"{response.status_code} {response.text}"
@@ -114,7 +114,7 @@ class FirecrawlBrowserProvider(BrowserProvider):
 
     def close_session(self, session_id: str) -> bool:
         try:
-            response = requests.delete(
+            response = httpx.delete(
                 f"{self._api_url()}/v2/browser/{session_id}",
                 headers=self._headers(),
                 timeout=10,
@@ -142,7 +142,7 @@ class FirecrawlBrowserProvider(BrowserProvider):
             )
             return
         try:
-            requests.delete(
+            httpx.delete(
                 f"{self._api_url()}/v2/browser/{session_id}",
                 headers=self._headers(),
                 timeout=5,

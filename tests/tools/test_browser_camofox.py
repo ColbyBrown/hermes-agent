@@ -131,7 +131,7 @@ class TestCamofoxLoopbackRewrite:
 
 
 class TestCamofoxNavigate:
-    @patch("tools.browser_camofox.requests.post")
+    @patch("tools.browser_camofox.httpx.post")
     def test_creates_tab_on_first_navigate(self, mock_post, monkeypatch):
         monkeypatch.setenv("CAMOFOX_URL", "http://localhost:9377")
         mock_post.return_value = _mock_response(json_data={"tabId": "tab1", "url": "https://example.com"})
@@ -141,7 +141,7 @@ class TestCamofoxNavigate:
         assert result["url"] == "https://example.com"
 
     @patch("tools.browser_camofox.load_config")
-    @patch("tools.browser_camofox.requests.post")
+    @patch("tools.browser_camofox.httpx.post")
     def test_navigate_uses_rewritten_loopback_url(self, mock_post, mock_config, monkeypatch):
         monkeypatch.setenv("CAMOFOX_URL", "http://localhost:9377")
         monkeypatch.delenv("CAMOFOX_REWRITE_LOOPBACK_URLS", raising=False)
@@ -158,7 +158,7 @@ class TestCamofoxNavigate:
         assert "Rewrote loopback URL" in result["warning"]
         assert mock_post.call_args.kwargs["json"]["url"] == "http://host.docker.internal:8766/#settings"
 
-    @patch("tools.browser_camofox.requests.post")
+    @patch("tools.browser_camofox.httpx.post")
     def test_navigates_existing_tab(self, mock_post, monkeypatch):
         monkeypatch.setenv("CAMOFOX_URL", "http://localhost:9377")
         # First call creates tab
@@ -190,8 +190,8 @@ class TestCamofoxSnapshot:
         assert result["success"] is False
         assert "browser_navigate" in result["error"]
 
-    @patch("tools.browser_camofox.requests.post")
-    @patch("tools.browser_camofox.requests.get")
+    @patch("tools.browser_camofox.httpx.post")
+    @patch("tools.browser_camofox.httpx.get")
     def test_returns_snapshot(self, mock_get, mock_post, monkeypatch):
         monkeypatch.setenv("CAMOFOX_URL", "http://localhost:9377")
         # Create session
@@ -215,7 +215,7 @@ class TestCamofoxSnapshot:
 
 
 class TestCamofoxInteractions:
-    @patch("tools.browser_camofox.requests.post")
+    @patch("tools.browser_camofox.httpx.post")
     def test_click(self, mock_post, monkeypatch):
         monkeypatch.setenv("CAMOFOX_URL", "http://localhost:9377")
         mock_post.return_value = _mock_response(json_data={"tabId": "tab4", "url": "https://x.com"})
@@ -226,7 +226,7 @@ class TestCamofoxInteractions:
         assert result["success"] is True
         assert result["clicked"] == "e5"
 
-    @patch("tools.browser_camofox.requests.post")
+    @patch("tools.browser_camofox.httpx.post")
     def test_type(self, mock_post, monkeypatch):
         monkeypatch.setenv("CAMOFOX_URL", "http://localhost:9377")
         mock_post.return_value = _mock_response(json_data={"tabId": "tab5", "url": "https://x.com"})
@@ -237,7 +237,7 @@ class TestCamofoxInteractions:
         assert result["success"] is True
         assert result["typed"] == "hello world"
 
-    @patch("tools.browser_camofox.requests.post")
+    @patch("tools.browser_camofox.httpx.post")
     def test_scroll(self, mock_post, monkeypatch):
         monkeypatch.setenv("CAMOFOX_URL", "http://localhost:9377")
         mock_post.return_value = _mock_response(json_data={"tabId": "tab6", "url": "https://x.com"})
@@ -248,7 +248,7 @@ class TestCamofoxInteractions:
         assert result["success"] is True
         assert result["scrolled"] == "down"
 
-    @patch("tools.browser_camofox.requests.post")
+    @patch("tools.browser_camofox.httpx.post")
     def test_back(self, mock_post, monkeypatch):
         monkeypatch.setenv("CAMOFOX_URL", "http://localhost:9377")
         mock_post.return_value = _mock_response(json_data={"tabId": "tab7", "url": "https://x.com"})
@@ -258,7 +258,7 @@ class TestCamofoxInteractions:
         result = json.loads(camofox_back(task_id="t7"))
         assert result["success"] is True
 
-    @patch("tools.browser_camofox.requests.post")
+    @patch("tools.browser_camofox.httpx.post")
     def test_press(self, mock_post, monkeypatch):
         monkeypatch.setenv("CAMOFOX_URL", "http://localhost:9377")
         mock_post.return_value = _mock_response(json_data={"tabId": "tab8", "url": "https://x.com"})
@@ -276,8 +276,8 @@ class TestCamofoxInteractions:
 
 
 class TestCamofoxClose:
-    @patch("tools.browser_camofox.requests.delete")
-    @patch("tools.browser_camofox.requests.post")
+    @patch("tools.browser_camofox.httpx.delete")
+    @patch("tools.browser_camofox.httpx.post")
     def test_close_session(self, mock_post, mock_delete, monkeypatch):
         monkeypatch.setenv("CAMOFOX_URL", "http://localhost:9377")
         mock_post.return_value = _mock_response(json_data={"tabId": "tab9", "url": "https://x.com"})
@@ -314,8 +314,8 @@ class TestCamofoxConsole:
 
 
 class TestCamofoxGetImages:
-    @patch("tools.browser_camofox.requests.post")
-    @patch("tools.browser_camofox.requests.get")
+    @patch("tools.browser_camofox.httpx.post")
+    @patch("tools.browser_camofox.httpx.get")
     def test_get_images(self, mock_get, mock_post, monkeypatch):
         monkeypatch.setenv("CAMOFOX_URL", "http://localhost:9377")
         mock_post.return_value = _mock_response(json_data={"tabId": "tab10", "url": "https://x.com"})
@@ -336,7 +336,7 @@ class TestCamofoxGetImages:
 
 
 class TestCamofoxVisionConfig:
-    @patch("tools.browser_camofox.requests.post")
+    @patch("tools.browser_camofox.httpx.post")
     @patch("tools.browser_camofox._get")
     @patch("tools.browser_camofox._get_raw")
     def test_camofox_vision_uses_configured_temperature_and_timeout(self, mock_get_raw, mock_get, mock_post, monkeypatch):
@@ -368,7 +368,7 @@ class TestCamofoxVisionConfig:
         assert mock_llm.call_args.kwargs["temperature"] == 1.0
         assert mock_llm.call_args.kwargs["timeout"] == 45.0
 
-    @patch("tools.browser_camofox.requests.post")
+    @patch("tools.browser_camofox.httpx.post")
     @patch("tools.browser_camofox._get")
     @patch("tools.browser_camofox._get_raw")
     def test_camofox_vision_defaults_temperature_when_config_omits_it(self, mock_get_raw, mock_get, mock_post, monkeypatch):
@@ -409,7 +409,7 @@ class TestCamofoxVisionConfig:
 class TestBrowserToolRouting:
     """Verify that browser_tool.py delegates to camofox when CAMOFOX_URL is set."""
 
-    @patch("tools.browser_camofox.requests.post")
+    @patch("tools.browser_camofox.httpx.post")
     def test_browser_navigate_routes_to_camofox(self, mock_post, monkeypatch):
         monkeypatch.setenv("CAMOFOX_URL", "http://localhost:9377")
         mock_post.return_value = _mock_response(json_data={"tabId": "tab_rt", "url": "https://example.com"})

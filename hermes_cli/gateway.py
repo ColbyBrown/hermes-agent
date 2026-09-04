@@ -18,6 +18,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 
 from gateway.status import terminate_pid
+from utils import env_var_enabled, is_truthy_value
 from gateway.restart import (
     DEFAULT_GATEWAY_RESTART_DRAIN_TIMEOUT,
     GATEWAY_SERVICE_RESTART_EXIT_CODE,
@@ -1262,8 +1263,7 @@ def _windows_gateway_should_absorb_console_controls() -> bool:
     if not is_windows():
         return False
 
-    detached = os.getenv("HERMES_GATEWAY_DETACHED", "").strip().lower()
-    if detached in {"1", "true", "yes", "on"}:
+    if env_var_enabled("HERMES_GATEWAY_DETACHED"):
         return True
 
     try:
@@ -3124,7 +3124,7 @@ def launchd_status(deep: bool = False):
 # =============================================================================
 
 def _truthy_env(value: str | None) -> bool:
-    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+    return is_truthy_value(value)
 
 
 def _is_official_docker_checkout() -> bool:
@@ -5165,7 +5165,7 @@ def _maybe_redirect_run_to_s6_supervision(args) -> bool:
     Returns True iff dispatched (caller should ``return``).
     """
     no_supervise = getattr(args, "no_supervise", False) or \
-        os.environ.get("HERMES_GATEWAY_NO_SUPERVISE", "").lower() in ("1", "true", "yes")
+        env_var_enabled("HERMES_GATEWAY_NO_SUPERVISE")
     if no_supervise:
         return False
     if os.environ.get("HERMES_S6_SUPERVISED_CHILD"):

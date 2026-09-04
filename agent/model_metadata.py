@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
-import requests
+import httpx
 import yaml
 
 from utils import base_url_host_matches, base_url_hostname
@@ -23,17 +23,17 @@ from hermes_constants import OPENROUTER_MODELS_URL
 logger = logging.getLogger(__name__)
 
 
-def _resolve_requests_verify() -> bool | str:
-    """Resolve SSL verify setting for `requests` calls from env vars.
+def _resolve_ssl_verify() -> bool | str:
+    """Resolve SSL verify setting for HTTP calls from env vars.
 
-    The `requests` library only honours REQUESTS_CA_BUNDLE / CURL_CA_BUNDLE
-    by default. Hermes also honours HERMES_CA_BUNDLE (its own convention)
-    and SSL_CERT_FILE (used by the stdlib `ssl` module and by httpx), so
-    that a single env var can cover both `requests` and `httpx` callsites
-    inside the same process.
+    The stdlib only honours SSL_CERT_FILE by default; REQUESTS_CA_BUNDLE /
+    CURL_CA_BUNDLE are the convention of the `requests` library. Hermes also
+    honours HERMES_CA_BUNDLE (its own convention) and SSL_CERT_FILE (used by
+    the stdlib `ssl` module and by httpx), so that a single env var covers
+    every HTTP client in-process.
 
     Returns either a filesystem path to a CA bundle, or True to defer to
-    the requests default (certifi).
+    the default (certifi).
     """
     for env_var in ("HERMES_CA_BUNDLE", "REQUESTS_CA_BUNDLE", "SSL_CERT_FILE"):
         val = os.getenv(env_var)
@@ -618,7 +618,7 @@ def fetch_model_metadata(force_refresh: bool = False) -> Dict[str, Dict[str, Any
         return _model_metadata_cache
 
     try:
-        response = requests.get(OPENROUTER_MODELS_URL, timeout=10, verify=_resolve_requests_verify())
+        response = httpx.get(OPENROUTER_MODELS_URL, timeout=10, verify=_resolve_ssl_verify())
         response.raise_for_status()
         data = response.json()
 
@@ -681,11 +681,11 @@ def fetch_endpoint_model_metadata(
         try:
             if detect_local_server_type(normalized, api_key=api_key) == "lm-studio":
                 server_url = normalized[:-3].rstrip("/") if normalized.endswith("/v1") else normalized
-                response = requests.get(
+                response = httpx.get(
                     server_url.rstrip("/") + "/api/v1/models",
                     headers=headers,
                     timeout=10,
-                    verify=_resolve_requests_verify(),
+                    verify=_resolve_ssl_verify(),
                 )
                 response.raise_for_status()
                 payload = response.json()
@@ -732,7 +732,7 @@ def fetch_endpoint_model_metadata(
     for candidate in candidates:
         url = candidate.rstrip("/") + "/models"
         try:
-            response = requests.get(url, headers=headers, timeout=10, verify=_resolve_requests_verify())
+            response = httpx.get(url, headers=headers, timeout=10, verify=_resolve_ssl_verify())
             response.raise_for_status()
             payload = response.json()
             cache: Dict[str, Dict[str, Any]] = {}
@@ -763,10 +763,10 @@ def fetch_endpoint_model_metadata(
                 try:
                     # Try /v1/props first (current llama.cpp); fall back to /props for older builds
                     base = candidate.rstrip("/").replace("/v1", "")
-                    _verify = _resolve_requests_verify()
-                    props_resp = requests.get(base + "/v1/props", headers=headers, timeout=5, verify=_verify)
+                    _verify = _resolve_ssl_verify()
+                    props_resp = httpx.get(base + "/v1/props", headers=headers, timeout=5, verify=_verify)
                     if not props_resp.ok:
-                        props_resp = requests.get(base + "/props", headers=headers, timeout=5, verify=_verify)
+                        props_resp = httpx.get(base + "/props", headers=headers, timeout=5, verify=_verify)
                     if props_resp.ok:
                         props = props_resp.json()
                         gen_settings = props.get("default_generation_settings", {})
@@ -1245,7 +1245,7 @@ def _query_anthropic_context_length(model: str, base_url: str, api_key: str) -> 
             "x-api-key": api_key,
             "anthropic-version": "2023-06-01",
         }
-        resp = requests.get(url, headers=headers, timeout=10, verify=_resolve_requests_verify())
+        resp = httpx.get(url, headers=headers, timeout=10, verify=_resolve_ssl_verify())
         if resp.status_code != 200:
             return None
         data = resp.json()
@@ -1309,11 +1309,11 @@ def _fetch_codex_oauth_context_lengths(access_token: str) -> Dict[str, int]:
         return _codex_oauth_context_cache
 
     try:
-        resp = requests.get(
+        resp = httpx.get(
             "https://chatgpt.com/backend-api/codex/models?client_version=1.0.0",
             headers={"Authorization": f"Bearer {access_token}"},
             timeout=10,
-            verify=_resolve_requests_verify(),
+            verify=_resolve_ssl_verify(),
         )
         if resp.status_code != 200:
             logger.debug(

@@ -20,7 +20,7 @@ import uuid
 from abc import ABC, abstractmethod
 from urllib.parse import urlsplit
 
-from utils import normalize_proxy_url
+from utils import env_var_enabled, normalize_proxy_url
 
 logger = logging.getLogger(__name__)
 
@@ -944,8 +944,7 @@ def _media_delivery_strict_mode() -> bool:
     gateways where prompt injection from one user shouldn't be able to
     exfiltrate the host's secrets to that same user.
     """
-    raw = os.environ.get(MEDIA_DELIVERY_STRICT_ENV, "0").strip().lower()
-    return raw in ("1", "true", "yes", "on")
+    return env_var_enabled(MEDIA_DELIVERY_STRICT_ENV, default="0")
 
 
 def _media_delivery_denied_paths() -> List[Path]:

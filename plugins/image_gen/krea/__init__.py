@@ -27,7 +27,7 @@ import os
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-import requests
+import httpx
 
 from agent.image_gen_provider import (
     DEFAULT_ASPECT_RATIO,
@@ -275,14 +275,14 @@ class KreaImageGenProvider(ImageGenProvider):
         # 1. Submit job.
         submit_url = f"{BASE_URL}/generate/image/krea/krea-2/{meta['path']}"
         try:
-            response = requests.post(
+            response = httpx.post(
                 submit_url,
                 headers=headers,
                 json=payload,
                 timeout=30,
             )
             response.raise_for_status()
-        except requests.HTTPError as exc:
+        except httpx.HTTPStatusError as exc:
             resp = exc.response
             status = resp.status_code if resp is not None else 0
             try:
@@ -303,7 +303,7 @@ class KreaImageGenProvider(ImageGenProvider):
                 prompt=prompt,
                 aspect_ratio=aspect,
             )
-        except requests.Timeout:
+        except httpx.TimeoutException:
             return error_response(
                 error="Krea submit timed out (30s)",
                 error_type="timeout",
@@ -312,7 +312,7 @@ class KreaImageGenProvider(ImageGenProvider):
                 prompt=prompt,
                 aspect_ratio=aspect,
             )
-        except requests.ConnectionError as exc:
+        except httpx.TransportError as exc:
             return error_response(
                 error=f"Krea connection error: {exc}",
                 error_type="connection_error",
@@ -360,9 +360,9 @@ class KreaImageGenProvider(ImageGenProvider):
             interval = min(interval * _POLL_BACKOFF, _POLL_MAX_INTERVAL)
 
             try:
-                poll_resp = requests.get(job_url, headers=poll_headers, timeout=30)
+                poll_resp = httpx.get(job_url, headers=poll_headers, timeout=30)
                 poll_resp.raise_for_status()
-            except requests.HTTPError as exc:
+            except httpx.HTTPStatusError as exc:
                 resp = exc.response
                 status = resp.status_code if resp is not None else 0
                 logger.error("Krea poll failed (%d) for job %s", status, job_id)
@@ -382,7 +382,7 @@ class KreaImageGenProvider(ImageGenProvider):
                 # Otherwise keep trying — transient 5xx (and a few retryable
                 # 4xx like 408/409/425/429) are common on async jobs.
                 continue
-            except (requests.Timeout, requests.ConnectionError) as exc:
+            except (httpx.TimeoutException, httpx.TransportError) as exc:
                 logger.warning("Krea poll transient error for job %s: %s", job_id, exc)
                 if time.monotonic() >= deadline:
                     return error_response(

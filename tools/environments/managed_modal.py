@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-import requests
+import httpx
 import uuid
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
@@ -229,7 +229,7 @@ class ManagedModalEnvironment(BaseModalExecutionEnvironment):
     def _request(self, method: str, path: str, *,
                  json: Dict[str, Any] | None = None,
                  timeout: int = 30,
-                 extra_headers: Dict[str, str] | None = None) -> requests.Response:
+                 extra_headers: Dict[str, str] | None = None) -> httpx.Response:
         headers = {
             "Authorization": f"Bearer {self._nous_user_token}",
             "Content-Type": "application/json",
@@ -237,12 +237,14 @@ class ManagedModalEnvironment(BaseModalExecutionEnvironment):
         if extra_headers:
             headers.update(extra_headers)
 
-        return requests.request(
+        return httpx.request(
             method,
             f"{self._gateway_origin}{path}",
             headers=headers,
             json=json,
-            timeout=timeout,
+            timeout=timeout if not isinstance(timeout, tuple) else httpx.Timeout(
+                timeout[0], read=timeout[1]
+            ),
         )
 
     def _cancel_exec(self, exec_id: str) -> None:
@@ -265,7 +267,7 @@ class ManagedModalEnvironment(BaseModalExecutionEnvironment):
             return default
 
     @staticmethod
-    def _format_error(prefix: str, response: requests.Response) -> str:
+    def _format_error(prefix: str, response: httpx.Response) -> str:
         try:
             payload = response.json()
             if isinstance(payload, dict):

@@ -1436,7 +1436,7 @@ def _transcribe_xai(file_path: str, model_name: str) -> Dict[str, Any]:
     use_diarize = is_truthy_value(xai_config.get("diarize", False))
 
     try:
-        import requests
+        import httpx
         from tools.xai_http import hermes_xai_user_agent
 
         data: Dict[str, str] = {}
@@ -1448,7 +1448,7 @@ def _transcribe_xai(file_path: str, model_name: str) -> Dict[str, Any]:
             data["diarize"] = "true"
 
         with open(file_path, "rb") as audio_file:
-            response = requests.post(
+            response = httpx.post(
                 f"{base_url}/stt",
                 headers={
                     "Authorization": f"Bearer {api_key}",

@@ -194,9 +194,9 @@ class _Client:
         return h
 
     def request(self, method: str, path: str, *, params=None, json_body=None, timeout: float = 8.0) -> Any:
-        import requests
+        import httpx
         url = f"{self.base_url}{path}"
-        resp = requests.request(
+        resp = httpx.request(
             method.upper(), url,
             params=params,
             json=json_body if method.upper() not in {"GET", "DELETE"} else None,
@@ -207,7 +207,7 @@ class _Client:
             payload = resp.json()
         except Exception:
             payload = resp.text
-        if not resp.ok:
+        if not resp.is_success:
             msg = ""
             if isinstance(payload, dict):
                 msg = str(payload.get("message") or payload.get("error") or "")
@@ -283,14 +283,15 @@ class _Client:
 
     def upload_file(self, data: bytes, filename: str, remote_path: str, mime_type: str, scope: str, project_id: str | None) -> dict:
         import io
-        import requests
+
+        import httpx
         url = f"{self.base_url}/v1/files"
         token = self.api_key.replace("Bearer ", "").strip()
         headers = {"Authorization": f"Bearer {token}", "x-sdk-runtime": "hermes-plugin"}
         fields = {"path": remote_path, "scope": scope.upper()}
         if project_id:
             fields["project_id"] = project_id
-        resp = requests.post(url, files={"file": (filename, io.BytesIO(data), mime_type)}, data=fields, headers=headers, timeout=30)
+        resp = httpx.post(url, files={"file": (filename, io.BytesIO(data), mime_type)}, data=fields, headers=headers, timeout=30)
         resp.raise_for_status()
         return resp.json()
 
@@ -304,10 +305,10 @@ class _Client:
         return self.request("GET", f"/v1/files/{quote(file_id, safe='')}")
 
     def read_file_content(self, file_id: str) -> bytes:
-        import requests
+        import httpx
         token = self.api_key.replace("Bearer ", "").strip()
         url = f"{self.base_url}/v1/files/{quote(file_id, safe='')}/content"
-        resp = requests.get(url, headers={"Authorization": f"Bearer {token}", "x-sdk-runtime": "hermes-plugin"}, timeout=30, allow_redirects=True)
+        resp = httpx.get(url, headers={"Authorization": f"Bearer {token}", "x-sdk-runtime": "hermes-plugin"}, timeout=30, follow_redirects=True)
         resp.raise_for_status()
         return resp.content
 

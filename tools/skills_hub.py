@@ -318,8 +318,10 @@ class GitHubAuth:
             return None
 
         try:
+            from tools.lazy_deps import ensure
+            ensure("skills.jwt", prompt=False)
             import jwt  # PyJWT
-        except ImportError:
+        except Exception:
             logger.debug("PyJWT not installed, skipping GitHub App auth")
             return None
 

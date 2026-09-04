@@ -36,7 +36,7 @@ import os
 import uuid
 from typing import Any, Dict, Optional
 
-import requests
+import httpx
 
 from agent.browser_provider import BrowserProvider
 
@@ -140,7 +140,7 @@ class BrowserbaseBrowserProvider(BrowserProvider):
         }
 
         try:
-            response = requests.post(
+            response = httpx.post(
                 f"{config['base_url']}/v1/sessions",
                 headers=headers,
                 json=session_config,
@@ -159,7 +159,7 @@ class BrowserbaseBrowserProvider(BrowserProvider):
                         "Sessions may timeout during long operations."
                     )
                     session_config.pop("keepAlive", None)
-                    response = requests.post(
+                    response = httpx.post(
                         f"{config['base_url']}/v1/sessions",
                         headers=headers,
                         json=session_config,
@@ -173,18 +173,18 @@ class BrowserbaseBrowserProvider(BrowserProvider):
                         "Bot detection may be less effective."
                     )
                     session_config.pop("proxies", None)
-                    response = requests.post(
+                    response = httpx.post(
                         f"{config['base_url']}/v1/sessions",
                         headers=headers,
                         json=session_config,
                         timeout=30,
                     )
-        except requests.RequestException as exc:
+        except httpx.HTTPError as exc:
             raise RuntimeError(
                 f"Browserbase API connection failed: {exc}"
             ) from exc
 
-        if not response.ok:
+        if not response.is_success:
             raise RuntimeError(
                 f"Failed to create Browserbase session: "
                 f"{response.status_code} {response.text}"
@@ -224,7 +224,7 @@ class BrowserbaseBrowserProvider(BrowserProvider):
             return False
 
         try:
-            response = requests.post(
+            response = httpx.post(
                 f"{config['base_url']}/v1/sessions/{session_id}",
                 headers={
                     "X-BB-API-Key": config["api_key"],
@@ -260,7 +260,7 @@ class BrowserbaseBrowserProvider(BrowserProvider):
             )
             return
         try:
-            requests.post(
+            httpx.post(
                 f"{config['base_url']}/v1/sessions/{session_id}",
                 headers={
                     "X-BB-API-Key": config["api_key"],

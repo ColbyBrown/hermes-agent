@@ -474,7 +474,7 @@ class TestFetchEndpointModelMetadataLmStudio:
         )
 
         with patch("agent.model_metadata.detect_local_server_type", return_value="lm-studio"), \
-             patch("agent.model_metadata.requests.get", return_value=native_resp) as mock_get:
+             patch("agent.model_metadata.httpx.get", return_value=native_resp) as mock_get:
             result = fetch_endpoint_model_metadata(
                 "http://localhost:1234/v1",
                 api_key="lm-token",

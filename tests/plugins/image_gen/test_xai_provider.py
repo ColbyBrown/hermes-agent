@@ -131,7 +131,7 @@ class TestGenerate:
             "data": [{"b64_json": "dGVzdC1pbWFnZS1kYXRh"}],  # base64 "test-image-data"
         }
 
-        with patch("plugins.image_gen.xai.requests.post", return_value=mock_resp):
+        with patch("plugins.image_gen.xai.httpx.post", return_value=mock_resp):
             with patch("plugins.image_gen.xai.save_b64_image", return_value="/tmp/test.png"):
                 provider = XAIImageGenProvider()
                 result = provider.generate(prompt="A cat playing piano")
@@ -159,7 +159,7 @@ class TestGenerate:
             "data": [{"url": "https://imgen.x.ai/xai-tmp-imgen-test.jpeg"}],
         }
 
-        with patch("plugins.image_gen.xai.requests.post", return_value=mock_resp), \
+        with patch("plugins.image_gen.xai.httpx.post", return_value=mock_resp), \
              patch(
                  "plugins.image_gen.xai.save_url_image",
                  return_value=Path("/tmp/xai_grok-imagine-image_20260524_000000_deadbeef.jpg"),
@@ -189,7 +189,7 @@ class TestGenerate:
         too 404s, the user gets the original (now legible) error rather
         than an opaque "image generation failed" tool result.
         """
-        import requests as req_lib
+        import httpx as req_lib
         from plugins.image_gen.xai import XAIImageGenProvider
 
         mock_resp = MagicMock()
@@ -199,10 +199,10 @@ class TestGenerate:
             "data": [{"url": "https://imgen.x.ai/xai-tmp-imgen-already-404.jpeg"}],
         }
 
-        with patch("plugins.image_gen.xai.requests.post", return_value=mock_resp), \
+        with patch("plugins.image_gen.xai.httpx.post", return_value=mock_resp), \
              patch(
                  "plugins.image_gen.xai.save_url_image",
-                 side_effect=req_lib.HTTPError("404 from CDN"),
+                 side_effect=req_lib.HTTPStatusError("404 from CDN", request=req_lib.Request("POST", "https://mock"), response=MagicMock(status_code=404)),
              ):
             provider = XAIImageGenProvider()
             result = provider.generate(prompt="A cat playing piano")
@@ -213,16 +213,16 @@ class TestGenerate:
         assert result["image"] == "https://imgen.x.ai/xai-tmp-imgen-already-404.jpeg"
 
     def test_api_error(self):
-        import requests as req_lib
+        import httpx as req_lib
         from plugins.image_gen.xai import XAIImageGenProvider
 
         mock_resp = MagicMock()
         mock_resp.status_code = 401
         mock_resp.text = "Unauthorized"
         mock_resp.json.return_value = {"error": {"message": "Invalid API key"}}
-        mock_resp.raise_for_status.side_effect = req_lib.HTTPError(response=mock_resp)
+        mock_resp.raise_for_status.side_effect = req_lib.HTTPStatusError("mocked", request=req_lib.Request("POST", "https://mock"), response=mock_resp)
 
-        with patch("plugins.image_gen.xai.requests.post", return_value=mock_resp):
+        with patch("plugins.image_gen.xai.httpx.post", return_value=mock_resp):
             provider = XAIImageGenProvider()
             result = provider.generate(prompt="test")
 
@@ -230,19 +230,19 @@ class TestGenerate:
         assert result["error_type"] == "api_error"
 
     def test_api_error_preserves_real_response_status(self):
-        import requests as req_lib
+        import httpx as req_lib
         from plugins.image_gen.xai import XAIImageGenProvider
 
-        response = req_lib.Response()
+        response = req_lib.Response(status_code=0)
         response.status_code = 401
         response._content = json.dumps({"error": {"message": "Invalid API key"}}).encode()
         response.headers["Content-Type"] = "application/json"
 
         response.raise_for_status = MagicMock(
-            side_effect=req_lib.HTTPError(response=response)
+            side_effect=req_lib.HTTPStatusError("mocked", request=req_lib.Request("POST", "https://mock"), response=response)
         )
 
-        with patch("plugins.image_gen.xai.requests.post", return_value=response):
+        with patch("plugins.image_gen.xai.httpx.post", return_value=response):
             provider = XAIImageGenProvider()
             result = provider.generate(prompt="test")
 
@@ -251,11 +251,11 @@ class TestGenerate:
         assert "xAI image generation failed (401): Invalid API key" in result["error"]
 
     def test_timeout(self):
-        import requests as req_lib
+        import httpx as req_lib
 
         from plugins.image_gen.xai import XAIImageGenProvider
 
-        with patch("plugins.image_gen.xai.requests.post", side_effect=req_lib.Timeout()):
+        with patch("plugins.image_gen.xai.httpx.post", side_effect=req_lib.ReadTimeout("timed out")):
             provider = XAIImageGenProvider()
             result = provider.generate(prompt="test")
 
@@ -270,7 +270,7 @@ class TestGenerate:
         mock_resp.raise_for_status = MagicMock()
         mock_resp.json.return_value = {"data": []}
 
-        with patch("plugins.image_gen.xai.requests.post", return_value=mock_resp):
+        with patch("plugins.image_gen.xai.httpx.post", return_value=mock_resp):
             provider = XAIImageGenProvider()
             result = provider.generate(prompt="test")
 
@@ -287,7 +287,7 @@ class TestGenerate:
             "data": [{"url": "https://xai.image/test.png"}],
         }
 
-        with patch("plugins.image_gen.xai.requests.post", return_value=mock_resp) as mock_post:
+        with patch("plugins.image_gen.xai.httpx.post", return_value=mock_resp) as mock_post:
             provider = XAIImageGenProvider()
             provider.generate(prompt="test")
 
@@ -309,7 +309,7 @@ class TestGenerate:
         mock_resp.raise_for_status = MagicMock()
         mock_resp.json.return_value = {"data": [{"url": "https://xai.image/test.png"}]}
 
-        with patch("plugins.image_gen.xai.requests.post", return_value=mock_resp) as mock_post:
+        with patch("plugins.image_gen.xai.httpx.post", return_value=mock_resp) as mock_post:
             provider = XAIImageGenProvider()
             provider.generate(prompt="test")
 

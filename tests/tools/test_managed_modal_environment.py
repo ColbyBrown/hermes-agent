@@ -134,7 +134,7 @@ def test_managed_modal_execute_polls_until_completed(monkeypatch):
             return _FakeResponse(200, {"status": "terminated"})
         raise AssertionError(f"Unexpected request: {method} {url}")
 
-    monkeypatch.setattr(managed_modal.requests, "request", fake_request)
+    monkeypatch.setattr(managed_modal.httpx, "request", fake_request)
     monkeypatch.setattr(modal_common.time, "sleep", lambda _: None)
 
     env = managed_modal.ManagedModalEnvironment(image="python:3.11")
@@ -159,7 +159,7 @@ def test_managed_modal_create_sends_a_stable_idempotency_key(monkeypatch):
             return _FakeResponse(200, {"status": "terminated"})
         raise AssertionError(f"Unexpected request: {method} {url}")
 
-    monkeypatch.setattr(managed_modal.requests, "request", fake_request)
+    monkeypatch.setattr(managed_modal.httpx, "request", fake_request)
 
     env = managed_modal.ManagedModalEnvironment(image="python:3.11")
     env.cleanup()
@@ -193,7 +193,7 @@ def test_managed_modal_execute_cancels_on_interrupt(monkeypatch):
     def fake_sleep(_seconds):
         interrupt_event.set()
 
-    monkeypatch.setattr(managed_modal.requests, "request", fake_request)
+    monkeypatch.setattr(managed_modal.httpx, "request", fake_request)
     monkeypatch.setattr(modal_common.time, "sleep", fake_sleep)
 
     env = managed_modal.ManagedModalEnvironment(image="python:3.11")
@@ -207,8 +207,10 @@ def test_managed_modal_execute_cancels_on_interrupt(monkeypatch):
     assert any(call[0] == "POST" and call[1].endswith("/cancel") for call in calls)
     poll_calls = [call for call in calls if call[0] == "GET" and "/execs/" in call[1]]
     cancel_calls = [call for call in calls if call[0] == "POST" and call[1].endswith("/cancel")]
-    assert poll_calls[0][3] == (1.0, 5.0)
-    assert cancel_calls[0][3] == (1.0, 5.0)
+    assert poll_calls[0][3].connect == 1.0
+    assert poll_calls[0][3].read == 5.0
+    assert cancel_calls[0][3].connect == 1.0
+    assert cancel_calls[0][3].read == 5.0
 
 
 def test_managed_modal_execute_returns_descriptive_error_on_missing_exec(monkeypatch):
@@ -227,7 +229,7 @@ def test_managed_modal_execute_returns_descriptive_error_on_missing_exec(monkeyp
             return _FakeResponse(200, {"status": "terminated"})
         raise AssertionError(f"Unexpected request: {method} {url}")
 
-    monkeypatch.setattr(managed_modal.requests, "request", fake_request)
+    monkeypatch.setattr(managed_modal.httpx, "request", fake_request)
     monkeypatch.setattr(modal_common.time, "sleep", lambda _: None)
 
     env = managed_modal.ManagedModalEnvironment(image="python:3.11")
@@ -254,7 +256,7 @@ def test_managed_modal_create_and_cleanup_preserve_gateway_persistence_fields(mo
             return _FakeResponse(200, {"status": "terminated"})
         raise AssertionError(f"Unexpected request: {method} {url}")
 
-    monkeypatch.setattr(managed_modal.requests, "request", fake_request)
+    monkeypatch.setattr(managed_modal.httpx, "request", fake_request)
 
     env = managed_modal.ManagedModalEnvironment(
         image="python:3.11",
@@ -311,7 +313,7 @@ def test_managed_modal_execute_times_out_and_cancels(monkeypatch):
             return _FakeResponse(200, {"status": "terminated"})
         raise AssertionError(f"Unexpected request: {method} {url}")
 
-    monkeypatch.setattr(managed_modal.requests, "request", fake_request)
+    monkeypatch.setattr(managed_modal.httpx, "request", fake_request)
     monkeypatch.setattr(modal_common.time, "monotonic", lambda: next(monotonic_values))
     monkeypatch.setattr(modal_common.time, "sleep", lambda _: None)
 

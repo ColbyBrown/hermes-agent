@@ -47,7 +47,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Union
 
 from hermes_constants import get_hermes_home
-from utils import env_var_enabled
+from utils import env_var_enabled, is_truthy_value
 from hermes_cli.config import cfg_get
 
 
@@ -85,9 +85,7 @@ logger = logging.getLogger(__name__)
 # The env var is read once at import time; tests that need to flip it
 # mid-process can call ``_install_plugin_debug_handler(force=True)``.
 
-_PLUGINS_DEBUG = os.getenv("HERMES_PLUGINS_DEBUG", "").strip().lower() in {
-    "1", "true", "yes", "on",
-}
+_PLUGINS_DEBUG = env_var_enabled("HERMES_PLUGINS_DEBUG")
 _DEBUG_HANDLER_INSTALLED = False
 
 
@@ -99,9 +97,7 @@ def _install_plugin_debug_handler(force: bool = False) -> None:
     """
     global _DEBUG_HANDLER_INSTALLED, _PLUGINS_DEBUG
     if force:
-        _PLUGINS_DEBUG = os.getenv("HERMES_PLUGINS_DEBUG", "").strip().lower() in {
-            "1", "true", "yes", "on",
-        }
+        _PLUGINS_DEBUG = is_truthy_value(os.getenv("HERMES_PLUGINS_DEBUG"))
     if not _PLUGINS_DEBUG or _DEBUG_HANDLER_INSTALLED:
         return
     handler = logging.StreamHandler(sys.stderr)

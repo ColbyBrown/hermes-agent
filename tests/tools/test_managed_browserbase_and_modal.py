@@ -245,7 +245,7 @@ def test_browser_use_managed_gateway_adds_idempotency_key_and_persists_external_
 
     class _Response:
         status_code = 200
-        ok = True
+        is_success = True
         text = ""
         headers = {"x-external-call-id": "call-browser-use-1"}
 
@@ -261,7 +261,7 @@ def test_browser_use_managed_gateway_adds_idempotency_key_and_persists_external_
             "browser/browser_use/provider.py",
         )
 
-        with patch.object(browser_use_module.requests, "post", return_value=_Response()) as post:
+        with patch.object(browser_use_module.httpx, "post", return_value=_Response()) as post:
             provider = browser_use_module.BrowserUseBrowserProvider()
             session = provider.create_session("task-browser-use-managed")
 
@@ -285,7 +285,7 @@ def test_browser_use_managed_gateway_reuses_pending_idempotency_key_after_timeou
 
     class _Response:
         status_code = 200
-        ok = True
+        is_success = True
         text = ""
         headers = {"x-external-call-id": "call-browser-use-2"}
 
@@ -301,16 +301,16 @@ def test_browser_use_managed_gateway_reuses_pending_idempotency_key_after_timeou
             "browser/browser_use/provider.py",
         )
         provider = browser_use_module.BrowserUseBrowserProvider()
-        timeout = browser_use_module.requests.Timeout("timed out")
+        timeout = browser_use_module.httpx.ReadTimeout("timed out")
 
         with patch.object(
-            browser_use_module.requests,
+            browser_use_module.httpx,
             "post",
             side_effect=[timeout, _Response()],
         ) as post:
             try:
                 provider.create_session("task-browser-use-timeout")
-            except browser_use_module.requests.Timeout:
+            except browser_use_module.httpx.ReadTimeout:
                 pass
             else:
                 raise AssertionError("Expected Browser Use create_session to propagate timeout")
@@ -333,7 +333,7 @@ def test_browser_use_managed_gateway_preserves_pending_idempotency_key_for_in_pr
 
     class _ConflictResponse:
         status_code = 409
-        ok = False
+        is_success = False
         text = '{"error":{"code":"CONFLICT","message":"Managed Browser Use session creation is already in progress for this idempotency key"}}'
         headers = {}
 
@@ -347,7 +347,7 @@ def test_browser_use_managed_gateway_preserves_pending_idempotency_key_for_in_pr
 
     class _SuccessResponse:
         status_code = 200
-        ok = True
+        is_success = True
         text = ""
         headers = {"x-external-call-id": "call-browser-use-4"}
 
@@ -365,7 +365,7 @@ def test_browser_use_managed_gateway_preserves_pending_idempotency_key_for_in_pr
         provider = browser_use_module.BrowserUseBrowserProvider()
 
         with patch.object(
-            browser_use_module.requests,
+            browser_use_module.httpx,
             "post",
             side_effect=[_ConflictResponse(), _SuccessResponse()],
         ) as post:
@@ -394,7 +394,7 @@ def test_browser_use_managed_gateway_uses_new_idempotency_key_for_a_new_session_
 
     class _Response:
         status_code = 200
-        ok = True
+        is_success = True
         text = ""
         headers = {"x-external-call-id": "call-browser-use-3"}
 
@@ -411,7 +411,7 @@ def test_browser_use_managed_gateway_uses_new_idempotency_key_for_a_new_session_
         )
         provider = browser_use_module.BrowserUseBrowserProvider()
 
-        with patch.object(browser_use_module.requests, "post", side_effect=[_Response(), _Response()]) as post:
+        with patch.object(browser_use_module.httpx, "post", side_effect=[_Response(), _Response()]) as post:
             provider.create_session("task-browser-use-new")
             provider.create_session("task-browser-use-new")
 

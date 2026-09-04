@@ -19,7 +19,7 @@ import time
 import logging
 from typing import Optional, Tuple
 
-import requests
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -42,10 +42,10 @@ def _api_post(path: str, payload: dict) -> dict:
     """POST to the registration API and return the parsed JSON body."""
     url = f"{REGISTRATION_BASE_URL}{path}"
     try:
-        resp = requests.post(url, json=payload, timeout=15)
+        resp = httpx.post(url, json=payload, timeout=15)
         resp.raise_for_status()
         data = resp.json()
-    except requests.RequestException as exc:
+    except httpx.HTTPError as exc:
         raise RegistrationError(f"Network error calling {url}: {exc}") from exc
 
     errcode = data.get("errcode", -1)

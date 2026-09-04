@@ -21,7 +21,7 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
-import requests
+import httpx
 
 from agent.image_gen_provider import (
     DEFAULT_ASPECT_RATIO,
@@ -198,14 +198,14 @@ class XAIImageGenProvider(ImageGenProvider):
         base_url = str(creds.get("base_url") or "https://api.x.ai/v1").strip().rstrip("/")
 
         try:
-            response = requests.post(
+            response = httpx.post(
                 f"{base_url}/images/generations",
                 headers=headers,
                 json=payload,
                 timeout=120,
             )
             response.raise_for_status()
-        except requests.HTTPError as exc:
+        except httpx.HTTPStatusError as exc:
             response = exc.response
             status = response.status_code if response is not None else 0
             try:
@@ -221,7 +221,7 @@ class XAIImageGenProvider(ImageGenProvider):
                 prompt=prompt,
                 aspect_ratio=aspect,
             )
-        except requests.Timeout:
+        except httpx.TimeoutException:
             return error_response(
                 error="xAI image generation timed out (120s)",
                 error_type="timeout",
@@ -230,7 +230,7 @@ class XAIImageGenProvider(ImageGenProvider):
                 prompt=prompt,
                 aspect_ratio=aspect,
             )
-        except requests.ConnectionError as exc:
+        except httpx.TransportError as exc:
             return error_response(
                 error=f"xAI connection error: {exc}",
                 error_type="connection_error",

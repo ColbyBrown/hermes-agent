@@ -338,7 +338,7 @@ class TestCodexOAuthContextLength:
             ]
         }
 
-        with patch("agent.model_metadata.requests.get", return_value=fake_response), \
+        with patch("agent.model_metadata.httpx.get", return_value=fake_response), \
              patch("agent.model_metadata.get_cached_context_length", return_value=None), \
              patch("agent.model_metadata.save_context_length"):
             ctx_55 = get_model_context_length(
@@ -365,7 +365,7 @@ class TestCodexOAuthContextLength:
         fake_response.status_code = 401
         fake_response.json.return_value = {}
 
-        with patch("agent.model_metadata.requests.get", return_value=fake_response), \
+        with patch("agent.model_metadata.httpx.get", return_value=fake_response), \
              patch("agent.model_metadata.get_cached_context_length", return_value=None), \
              patch("agent.model_metadata.save_context_length"):
             ctx = get_model_context_length(
@@ -429,7 +429,7 @@ class TestCodexOAuthContextLength:
             "models": [{"slug": "gpt-5.5", "context_window": 272_000}]
         }
 
-        with patch("agent.model_metadata.requests.get", return_value=fake_response), \
+        with patch("agent.model_metadata.httpx.get", return_value=fake_response), \
              patch("agent.model_metadata.save_context_length") as mock_save:
             ctx = mm.get_model_context_length(
                 model="gpt-5.5",
@@ -461,7 +461,7 @@ class TestCodexOAuthContextLength:
         }}))
 
         # If the invalidation incorrectly fired, this would be called; assert it isn't.
-        with patch("agent.model_metadata.requests.get") as mock_get:
+        with patch("agent.model_metadata.httpx.get") as mock_get:
             ctx = mm.get_model_context_length(
                 model="gpt-5.5",
                 base_url=base_url,
@@ -1020,7 +1020,7 @@ class TestFetchModelMetadata:
         mm._model_metadata_cache = {}
         mm._model_metadata_cache_time = 0
 
-    @patch("agent.model_metadata.requests.get")
+    @patch("agent.model_metadata.httpx.get")
     def test_caches_result(self, mock_get):
         self._reset_cache()
         mock_response = MagicMock()
@@ -1038,14 +1038,14 @@ class TestFetchModelMetadata:
         assert "test/model" in result2
         assert mock_get.call_count == 1  # cached
 
-    @patch("agent.model_metadata.requests.get")
+    @patch("agent.model_metadata.httpx.get")
     def test_api_failure_returns_empty_on_cold_cache(self, mock_get):
         self._reset_cache()
         mock_get.side_effect = Exception("Network error")
         result = fetch_model_metadata(force_refresh=True)
         assert result == {}
 
-    @patch("agent.model_metadata.requests.get")
+    @patch("agent.model_metadata.httpx.get")
     def test_api_failure_returns_stale_cache(self, mock_get):
         """On API failure with existing cache, stale data is returned."""
         import agent.model_metadata as mm
@@ -1057,7 +1057,7 @@ class TestFetchModelMetadata:
         assert "old/model" in result
         assert result["old/model"]["context_length"] == 50000
 
-    @patch("agent.model_metadata.requests.get")
+    @patch("agent.model_metadata.httpx.get")
     def test_canonical_slug_aliasing(self, mock_get):
         """Models with canonical_slug get indexed under both IDs."""
         self._reset_cache()
@@ -1079,7 +1079,7 @@ class TestFetchModelMetadata:
         assert "anthropic/claude-3.5-sonnet" in result
         assert result["anthropic/claude-3.5-sonnet"]["context_length"] == 200000
 
-    @patch("agent.model_metadata.requests.get")
+    @patch("agent.model_metadata.httpx.get")
     def test_provider_prefixed_models_get_bare_aliases(self, mock_get):
         self._reset_cache()
         mock_response = MagicMock()
@@ -1098,7 +1098,7 @@ class TestFetchModelMetadata:
         assert result["provider/test-model"]["context_length"] == 123456
         assert result["test-model"]["context_length"] == 123456
 
-    @patch("agent.model_metadata.requests.get")
+    @patch("agent.model_metadata.httpx.get")
     def test_ttl_expiry_triggers_refetch(self, mock_get):
         """Cache expires after _MODEL_CACHE_TTL seconds."""
         import agent.model_metadata as mm
@@ -1119,7 +1119,7 @@ class TestFetchModelMetadata:
         fetch_model_metadata()
         assert mock_get.call_count == 2  # refetched
 
-    @patch("agent.model_metadata.requests.get")
+    @patch("agent.model_metadata.httpx.get")
     def test_malformed_json_no_data_key(self, mock_get):
         """API returns JSON without 'data' key — empty cache, no crash."""
         self._reset_cache()

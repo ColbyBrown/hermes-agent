@@ -75,6 +75,9 @@ logger = logging.getLogger(__name__)
 
 
 LAZY_DEPS: dict[str, tuple[str, ...]] = {
+    # ─── Skills Hub / dashboard auth (JWT signing + verification) ───────────
+    "skills.jwt": ("PyJWT[crypto]==2.12.1",),
+
     # ─── Inference providers ───────────────────────────────────────────────
     # Native Anthropic SDK — needed when provider=anthropic (not via
     # OpenRouter / aggregators which use the openai SDK).

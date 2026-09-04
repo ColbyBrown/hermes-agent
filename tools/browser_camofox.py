@@ -34,7 +34,7 @@ import uuid
 from typing import Any, Dict, Optional
 from urllib.parse import SplitResult, urlsplit, urlunsplit
 
-import requests
+import httpx
 
 from hermes_cli.config import cfg_get, load_config
 from tools.browser_camofox_state import get_camofox_identity
@@ -77,7 +77,7 @@ def check_camofox_available() -> bool:
     if not url:
         return False
     try:
-        resp = requests.get(f"{url}/health", timeout=5)
+        resp = httpx.get(f"{url}/health", timeout=5)
         if resp.status_code == 200 and not _vnc_url_checked:
             try:
                 data = resp.json()
@@ -341,7 +341,7 @@ def _ensure_tab(task_id: Optional[str], url: str = "about:blank") -> Dict[str, A
     if session["tab_id"]:
         return session
     base = get_camofox_url()
-    resp = requests.post(
+    resp = httpx.post(
         f"{base}/tabs",
         json={
             "userId": session["user_id"],
@@ -387,7 +387,7 @@ def camofox_soft_cleanup(task_id: Optional[str] = None) -> bool:
 def _post(path: str, body: dict, timeout: int = _DEFAULT_TIMEOUT) -> dict:
     """POST JSON to camofox and return parsed response."""
     url = f"{get_camofox_url()}{path}"
-    resp = requests.post(url, json=body, timeout=timeout)
+    resp = httpx.post(url, json=body, timeout=timeout)
     resp.raise_for_status()
     return resp.json()
 
@@ -395,15 +395,15 @@ def _post(path: str, body: dict, timeout: int = _DEFAULT_TIMEOUT) -> dict:
 def _get(path: str, params: dict = None, timeout: int = _DEFAULT_TIMEOUT) -> dict:
     """GET from camofox and return parsed response."""
     url = f"{get_camofox_url()}{path}"
-    resp = requests.get(url, params=params, timeout=timeout)
+    resp = httpx.get(url, params=params, timeout=timeout)
     resp.raise_for_status()
     return resp.json()
 
 
-def _get_raw(path: str, params: dict = None, timeout: int = _DEFAULT_TIMEOUT) -> requests.Response:
+def _get_raw(path: str, params: dict = None, timeout: int = _DEFAULT_TIMEOUT) -> httpx.Response:
     """GET from camofox and return raw response (for binary data)."""
     url = f"{get_camofox_url()}{path}"
-    resp = requests.get(url, params=params, timeout=timeout)
+    resp = httpx.get(url, params=params, timeout=timeout)
     resp.raise_for_status()
     return resp
 
@@ -411,7 +411,7 @@ def _get_raw(path: str, params: dict = None, timeout: int = _DEFAULT_TIMEOUT) ->
 def _delete(path: str, body: dict = None, timeout: int = _DEFAULT_TIMEOUT) -> dict:
     """DELETE to camofox and return parsed response."""
     url = f"{get_camofox_url()}{path}"
-    resp = requests.delete(url, json=body, timeout=timeout)
+    resp = httpx.delete(url, json=body, timeout=timeout)
     resp.raise_for_status()
     return resp.json()
 
@@ -475,9 +475,9 @@ def camofox_navigate(url: str, task_id: Optional[str] = None) -> str:
             pass  # Navigation succeeded; snapshot is a bonus
 
         return json.dumps(result)
-    except requests.HTTPError as e:
+    except httpx.HTTPStatusError as e:
         return tool_error(f"Navigation failed: {e}", success=False)
-    except requests.ConnectionError:
+    except httpx.TransportError:
         return json.dumps({
             "success": False,
             "error": f"Cannot connect to Camofox at {get_camofox_url()}. "

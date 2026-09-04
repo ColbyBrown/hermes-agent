@@ -305,6 +305,7 @@ _apply_profile_override()
 # User-managed env files should override stale shell exports on restart.
 from hermes_cli.config import get_hermes_home
 from hermes_cli.env_loader import load_hermes_dotenv
+from utils import is_truthy_value
 
 load_hermes_dotenv(project_env=PROJECT_ROOT / ".env")
 
@@ -1254,8 +1255,8 @@ def _tui_need_rebuild(root: Path) -> bool:
     check still rebuilds immediately after source updates, dependency updates,
     or local edits. Set ``HERMES_TUI_FORCE_BUILD=1`` to force the old behaviour.
     """
-    force = (os.environ.get("HERMES_TUI_FORCE_BUILD") or "").strip().lower()
-    if force in {"1", "true", "yes", "on"}:
+    force = os.environ.get("HERMES_TUI_FORCE_BUILD") or ""
+    if is_truthy_value(force):
         return True
 
     entry = root / "dist" / "entry.js"

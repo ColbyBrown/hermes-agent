@@ -3983,7 +3983,7 @@ class GatewayRunner:
         # for this process's lifetime.
         try:
             _redact_raw = os.getenv("HERMES_REDACT_SECRETS", "true")
-            _redact_on = _redact_raw.lower() in {"1", "true", "yes", "on"}
+            _redact_on = is_truthy_value(_redact_raw)
             if _redact_on:
                 logger.info(
                     "Secret redaction: ENABLED (tool output, logs, and chat "
@@ -12775,11 +12775,7 @@ class GatewayRunner:
         value = extra.get("disable_topic_auto_rename")
         if value is None:
             return False
-        if isinstance(value, bool):
-            return value
-        if isinstance(value, str):
-            return value.strip().lower() in {"1", "true", "yes", "on"}
-        return bool(value)
+        return is_truthy_value(value)
 
     def _schedule_telegram_topic_title_rename(
         self,

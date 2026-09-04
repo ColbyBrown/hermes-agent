@@ -61,7 +61,7 @@ import sys
 import tempfile
 import threading
 import time
-import requests
+import httpx
 from typing import Dict, Any, Optional, List, Tuple, Union
 from pathlib import Path
 from agent.auxiliary_client import call_llm
@@ -263,7 +263,7 @@ def _resolve_cdp_override(cdp_url: str) -> str:
         version_url = discovery_url.rstrip("/") + "/json/version"
 
     try:
-        response = requests.get(version_url, timeout=10)
+        response = httpx.get(version_url, timeout=10, follow_redirects=True)
         response.raise_for_status()
         payload = response.json()
     except Exception as exc:

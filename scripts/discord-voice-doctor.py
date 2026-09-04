@@ -203,8 +203,8 @@ def check_env_vars():
             label = mask(uid)
             if token and uid.isdigit():
                 try:
-                    import requests
-                    r = requests.get(
+                    import httpx
+                    r = httpx.get(
                         f"https://discord.com/api/v10/users/{uid}",
                         headers={"Authorization": f"Bot {token}"},
                         timeout=3,
@@ -287,9 +287,9 @@ def check_bot_permissions(token):
         return True
 
     try:
-        import requests
+        import httpx
     except ImportError:
-        warn("Bot permissions", "requests not installed — skipping")
+        warn("Bot permissions", "httpx not installed — skipping")
         return True
 
     VOICE_PERMS = {
@@ -313,7 +313,7 @@ def check_bot_permissions(token):
 
     try:
         headers = {"Authorization": f"Bot {token}"}
-        r = requests.get("https://discord.com/api/v10/users/@me", headers=headers, timeout=5)
+        r = httpx.get("https://discord.com/api/v10/users/@me", headers=headers, timeout=5)
 
         if r.status_code == 401:
             check("Bot login", False, "invalid token (401)")
@@ -327,7 +327,7 @@ def check_bot_permissions(token):
         check("Bot login", True, f"{bot_name[:3]}{'*' * (len(bot_name) - 3)}")
 
         # Check guilds
-        r2 = requests.get("https://discord.com/api/v10/users/@me/guilds", headers=headers, timeout=5)
+        r2 = httpx.get("https://discord.com/api/v10/users/@me/guilds", headers=headers, timeout=5)
         if r2.status_code != 200:
             warn("Guilds", f"HTTP {r2.status_code}")
             return ok
@@ -357,9 +357,9 @@ def check_bot_permissions(token):
             else:
                 print(f"    {OK} {g['name']}: {', '.join(has)}")
 
-    except requests.exceptions.Timeout:
+    except httpx.TimeoutException:
         warn("Bot permissions", "Discord API timeout")
-    except requests.exceptions.ConnectionError:
+    except httpx.TransportError:
         warn("Bot permissions", "cannot reach Discord API")
     except Exception as e:
         warn("Bot permissions", f"check failed: {e}")

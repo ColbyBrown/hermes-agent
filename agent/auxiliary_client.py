@@ -102,7 +102,7 @@ OpenAI = _OpenAIProxy()  # module-level name, resolves lazily on call/isinstance
 from agent.credential_pool import load_pool
 from hermes_cli.config import get_hermes_home
 from hermes_constants import OPENROUTER_BASE_URL
-from utils import base_url_host_matches, base_url_hostname, normalize_proxy_env_vars
+from utils import base_url_host_matches, base_url_hostname, is_truthy_value, normalize_proxy_env_vars
 
 logger = logging.getLogger(__name__)
 
@@ -313,10 +313,6 @@ _OR_HEADERS_BASE = {
     "X-OpenRouter-Categories": "productivity,cli-agent",
 }
 
-# Truthy values for boolean env-var parsing.
-_TRUTHY_ENV_VALUES = frozenset({"1", "true", "yes", "on"})
-
-
 def build_or_headers(or_config: dict | None = None) -> dict:
     """Build OpenRouter headers, optionally including response-cache headers.
 
@@ -343,9 +339,9 @@ def build_or_headers(or_config: dict | None = None) -> dict:
             or_config = {}
 
     # Determine cache enabled: env var overrides config.
-    env_cache = os.environ.get("HERMES_OPENROUTER_CACHE", "").strip().lower()
-    if env_cache:
-        cache_enabled = env_cache in _TRUTHY_ENV_VALUES
+    env_cache = os.environ.get("HERMES_OPENROUTER_CACHE")
+    if env_cache is not None and env_cache.strip():
+        cache_enabled = is_truthy_value(env_cache)
     else:
         cache_enabled = or_config.get("response_cache", False)
 

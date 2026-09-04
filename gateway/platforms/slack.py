@@ -35,6 +35,8 @@ from pathlib import Path as _Path
 sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
 
 from gateway.config import Platform, PlatformConfig
+
+from utils import is_truthy_value
 from gateway.platforms.helpers import MessageDeduplicator
 from gateway.platforms.base import (
     BasePlatformAdapter,
@@ -956,7 +958,7 @@ class SlackAdapter(BasePlatformAdapter):
         raw = self.config.extra.get("dm_top_level_threads_as_sessions")
         if raw is None:
             return True  # default: each DM thread is its own session
-        return str(raw).strip().lower() in {"1", "true", "yes", "on"}
+        return is_truthy_value(str(raw))
 
     def _resolve_thread_ts(
         self,

@@ -175,7 +175,7 @@ class TestLookupModelsDevContext:
 
 
 class TestFetchModelsDev:
-    @patch("agent.models_dev.requests.get")
+    @patch("agent.models_dev.httpx.get")
     def test_fetch_success(self, mock_get):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
@@ -194,7 +194,7 @@ class TestFetchModelsDev:
         assert "anthropic" in result
         assert len(result) == len(SAMPLE_REGISTRY)
 
-    @patch("agent.models_dev.requests.get")
+    @patch("agent.models_dev.httpx.get")
     def test_fetch_failure_returns_stale_cache(self, mock_get):
         mock_get.side_effect = Exception("network error")
 
@@ -207,7 +207,7 @@ class TestFetchModelsDev:
 
         assert "anthropic" in result
 
-    @patch("agent.models_dev.requests.get")
+    @patch("agent.models_dev.httpx.get")
     def test_in_memory_cache_used(self, mock_get):
         import agent.models_dev as md
         import time
@@ -218,7 +218,7 @@ class TestFetchModelsDev:
         mock_get.assert_not_called()
         assert result == SAMPLE_REGISTRY
 
-    @patch("agent.models_dev.requests.get")
+    @patch("agent.models_dev.httpx.get")
     def test_fresh_disk_cache_skips_network(self, mock_get):
         """When in-mem cache is empty but disk cache exists and is fresh by
         mtime (< TTL), fetch_models_dev returns disk data without ever
@@ -244,7 +244,7 @@ class TestFetchModelsDev:
         # process stay on stage 1.
         assert md._models_dev_cache == SAMPLE_REGISTRY
 
-    @patch("agent.models_dev.requests.get")
+    @patch("agent.models_dev.httpx.get")
     def test_stale_disk_cache_falls_through_to_network(self, mock_get):
         """When the disk cache is OLDER than TTL, we must hit the network
         (and only fall back to the stale disk data if network fails)."""
@@ -268,7 +268,7 @@ class TestFetchModelsDev:
         mock_get.assert_called_once()
         assert "anthropic" in result
 
-    @patch("agent.models_dev.requests.get")
+    @patch("agent.models_dev.httpx.get")
     def test_force_refresh_skips_disk_cache(self, mock_get):
         """force_refresh=True bypasses BOTH the in-mem cache AND the
         disk-cache fast path. Used by ``hermes config refresh`` and
@@ -293,7 +293,7 @@ class TestFetchModelsDev:
         mock_get.assert_called_once()
         assert "anthropic" in result
 
-    @patch("agent.models_dev.requests.get")
+    @patch("agent.models_dev.httpx.get")
     def test_missing_disk_cache_falls_through_to_network(self, mock_get):
         """If the disk cache file doesn't exist (first-ever run, or it
         was deleted), fall through cleanly to network."""

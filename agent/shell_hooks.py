@@ -76,7 +76,7 @@ except ImportError:  # pragma: no cover
     fcntl = None  # type: ignore[assignment]
 
 from hermes_constants import get_hermes_home
-from utils import atomic_replace
+from utils import atomic_replace, env_var_enabled, is_truthy_value
 
 logger = logging.getLogger(__name__)
 
@@ -762,15 +762,9 @@ def _resolve_effective_accept(
     """
     if accept_hooks_arg:
         return True
-    env = os.environ.get("HERMES_ACCEPT_HOOKS", "").strip().lower()
-    if env in {"1", "true", "yes", "on"}:
+    if env_var_enabled("HERMES_ACCEPT_HOOKS"):
         return True
-    cfg_val = cfg.get("hooks_auto_accept", False)
-    if isinstance(cfg_val, bool):
-        return cfg_val
-    if isinstance(cfg_val, str):
-        return cfg_val.strip().lower() in {"1", "true", "yes", "on"}
-    return False
+    return is_truthy_value(cfg.get("hooks_auto_accept", False))
 
 
 # ---------------------------------------------------------------------------

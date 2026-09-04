@@ -11,7 +11,7 @@ Covers:
 
 import json
 
-import requests
+import httpx
 
 
 class _FakeResponse:
@@ -22,7 +22,7 @@ class _FakeResponse:
 
     def raise_for_status(self):
         if self.status_code >= 400:
-            err = requests.HTTPError(f"{self.status_code} Client Error")
+            err = httpx.HTTPStatusError(f"{self.status_code} Client Error", request=httpx.Request("POST", "https://api.x.ai"), response=httpx.Response(status_code=self.status_code, request=httpx.Request("POST", "https://api.x.ai")))
             err.response = self
             raise err
 
@@ -55,7 +55,7 @@ def test_x_search_posts_responses_request(monkeypatch):
         )
 
     monkeypatch.setenv("XAI_API_KEY", "xai-test-key")
-    monkeypatch.setattr("requests.post", _fake_post)
+    monkeypatch.setattr("httpx.post", _fake_post)
 
     result = json.loads(
         x_search_tool(
@@ -127,7 +127,7 @@ def test_x_search_extracts_inline_url_citations(monkeypatch):
         )
 
     monkeypatch.setenv("XAI_API_KEY", "xai-test-key")
-    monkeypatch.setattr("requests.post", _fake_post)
+    monkeypatch.setattr("httpx.post", _fake_post)
 
     result = json.loads(x_search_tool(query="latest post from xai"))
 
@@ -157,19 +157,19 @@ def test_x_search_returns_structured_http_error(monkeypatch):
             }
 
         def raise_for_status(self):
-            err = requests.HTTPError("403 Client Error: Forbidden")
+            err = httpx.HTTPStatusError("403 Client Error: Forbidden", request=httpx.Request("POST", "https://api.x.ai"), response=httpx.Response(status_code=403, request=httpx.Request("POST", "https://api.x.ai")))
             err.response = self
             raise err
 
     monkeypatch.setenv("XAI_API_KEY", "xai-test-key")
-    monkeypatch.setattr("requests.post", lambda *a, **k: _FailingResponse())
+    monkeypatch.setattr("httpx.post", lambda *a, **k: _FailingResponse())
 
     result = json.loads(x_search_tool(query="latest xai discussion"))
 
     assert result["success"] is False
     assert result["provider"] == "xai"
     assert result["tool"] == "x_search"
-    assert result["error_type"] == "HTTPError"
+    assert result["error_type"] == "HTTPStatusError"
     assert result["error"] == "forbidden: x_search is not enabled for this model"
 
 
@@ -181,7 +181,7 @@ def test_x_search_retries_read_timeout_then_succeeds(monkeypatch):
     def _fake_post(url, headers=None, json=None, timeout=None):
         calls["count"] += 1
         if calls["count"] == 1:
-            raise requests.ReadTimeout("timed out")
+            raise httpx.ReadTimeout("timed out")
         return _FakeResponse(
             {
                 "output_text": "Recovered after retry.",
@@ -190,7 +190,7 @@ def test_x_search_retries_read_timeout_then_succeeds(monkeypatch):
         )
 
     monkeypatch.setenv("XAI_API_KEY", "xai-test-key")
-    monkeypatch.setattr("requests.post", _fake_post)
+    monkeypatch.setattr("httpx.post", _fake_post)
     monkeypatch.setattr("tools.x_search_tool.time.sleep", lambda *_: None)
 
     result = json.loads(x_search_tool(query="grok xai"))
@@ -215,7 +215,7 @@ def test_x_search_retries_5xx_then_succeeds(monkeypatch):
         return _FakeResponse({"output_text": "Recovered after 5xx retry."})
 
     monkeypatch.setenv("XAI_API_KEY", "xai-test-key")
-    monkeypatch.setattr("requests.post", _fake_post)
+    monkeypatch.setattr("httpx.post", _fake_post)
     monkeypatch.setattr("tools.x_search_tool.time.sleep", lambda *_: None)
 
     result = json.loads(x_search_tool(query="grok xai"))
@@ -262,7 +262,7 @@ def test_x_search_uses_xai_oauth_when_only_oauth_available(monkeypatch):
         captured["headers"] = headers
         return _FakeResponse({"output_text": "Found posts via OAuth."})
 
-    monkeypatch.setattr("requests.post", _fake_post)
+    monkeypatch.setattr("httpx.post", _fake_post)
 
     result = json.loads(x_search_tool(query="anything about xai"))
 
@@ -300,7 +300,7 @@ def test_x_search_uses_api_key_when_only_xai_api_key_set(monkeypatch):
         captured["headers"] = headers
         return _FakeResponse({"output_text": "Found posts via API key."})
 
-    monkeypatch.setattr("requests.post", _fake_post)
+    monkeypatch.setattr("httpx.post", _fake_post)
 
     result = json.loads(x_search_tool(query="anything"))
 
@@ -342,7 +342,7 @@ def test_x_search_prefers_oauth_when_both_available(monkeypatch):
         captured["headers"] = headers
         return _FakeResponse({"output_text": "OAuth preferred."})
 
-    monkeypatch.setattr("requests.post", _fake_post)
+    monkeypatch.setattr("httpx.post", _fake_post)
 
     result = json.loads(x_search_tool(query="anything"))
 
@@ -415,7 +415,7 @@ def test_x_search_honors_config_model_and_timeout(monkeypatch, tmp_path):
         captured["timeout"] = timeout
         return _FakeResponse({"output_text": "Custom model OK."})
 
-    monkeypatch.setattr("requests.post", _fake_post)
+    monkeypatch.setattr("httpx.post", _fake_post)
 
     result = json.loads(x_search_tool(query="anything"))
 
@@ -448,9 +448,9 @@ def test_x_search_registered_in_registry_with_check_fn():
 def _no_post_allowed(monkeypatch):
     """Guard: any test that should fail before HTTP can hit this fence."""
     def _fail(*_, **__):
-        raise AssertionError("requests.post must not be called — validation should reject first")
+        raise AssertionError("httpx.post must not be called — validation should reject first")
 
-    monkeypatch.setattr("requests.post", _fail)
+    monkeypatch.setattr("httpx.post", _fail)
 
 
 def test_x_search_rejects_malformed_from_date(monkeypatch):
@@ -533,7 +533,7 @@ def test_x_search_allows_future_to_date(monkeypatch):
             {"output_text": "future to_date is allowed", "citations": []}
         )
 
-    monkeypatch.setattr("requests.post", _fake_post)
+    monkeypatch.setattr("httpx.post", _fake_post)
 
     result = json.loads(
         x_search_tool(
@@ -562,7 +562,7 @@ def test_x_search_accepts_today_as_from_date(monkeypatch):
 
     monkeypatch.setattr("tools.x_search_tool.datetime", _FrozenDateTime)
     monkeypatch.setattr(
-        "requests.post",
+        "httpx.post",
         lambda *a, **k: _FakeResponse({"output_text": "ok", "citations": []}),
     )
 
@@ -582,7 +582,7 @@ def test_x_search_marks_degraded_when_handle_filter_returns_no_citations(monkeyp
 
     monkeypatch.setenv("XAI_API_KEY", "xai-test-key")
     monkeypatch.setattr(
-        "requests.post",
+        "httpx.post",
         lambda *a, **k: _FakeResponse(
             {"output_text": "Generic encyclopedic answer with no citations.", "citations": []}
         ),
@@ -602,7 +602,7 @@ def test_x_search_marks_degraded_when_excluded_handles_and_no_citations(monkeypa
 
     monkeypatch.setenv("XAI_API_KEY", "xai-test-key")
     monkeypatch.setattr(
-        "requests.post",
+        "httpx.post",
         lambda *a, **k: _FakeResponse({"output_text": "fluff", "citations": []}),
     )
 
@@ -619,7 +619,7 @@ def test_x_search_marks_degraded_when_date_range_and_no_citations(monkeypatch):
 
     monkeypatch.setenv("XAI_API_KEY", "xai-test-key")
     monkeypatch.setattr(
-        "requests.post",
+        "httpx.post",
         lambda *a, **k: _FakeResponse({"output_text": "fluff", "citations": []}),
     )
 
@@ -642,7 +642,7 @@ def test_x_search_not_degraded_when_filter_returns_inline_citations(monkeypatch)
 
     monkeypatch.setenv("XAI_API_KEY", "xai-test-key")
     monkeypatch.setattr(
-        "requests.post",
+        "httpx.post",
         lambda *a, **k: _FakeResponse(
             {
                 "output": [
@@ -685,7 +685,7 @@ def test_x_search_not_degraded_when_filter_returns_top_level_citations(monkeypat
 
     monkeypatch.setenv("XAI_API_KEY", "xai-test-key")
     monkeypatch.setattr(
-        "requests.post",
+        "httpx.post",
         lambda *a, **k: _FakeResponse(
             {
                 "output_text": "Found discussion.",
@@ -713,7 +713,7 @@ def test_x_search_not_degraded_when_no_filters_active(monkeypatch):
 
     monkeypatch.setenv("XAI_API_KEY", "xai-test-key")
     monkeypatch.setattr(
-        "requests.post",
+        "httpx.post",
         lambda *a, **k: _FakeResponse({"output_text": "broad answer", "citations": []}),
     )
 
